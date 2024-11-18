@@ -91,7 +91,7 @@ def setup_navigation():
     st.sidebar.markdown("<h1 style='text-align: center; color: #AC8D61;'>Navegação</h1>", unsafe_allow_html=True)
     
     #Pages
-    pages = ["🔍 Diagnóstico do Cliente", "📋 Planilha Final"]
+    pages = ["🔍 Oportunidade de melhorias", "📋 Planilha Final"]
     
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 0
@@ -119,12 +119,12 @@ def convert_df_to_excel(df):
     """
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Mapeamento Problemas', index=False)
+        df.to_excel(writer, sheet_name='Oportunidade de melhorias', index=False)
         # Auto-adjust columns' width
         for column in df:
             column_width = max(df[column].astype(str).map(len).max(), len(column))
             col_idx = df.columns.get_loc(column)
-            writer.sheets['Mapeamento Problemas'].column_dimensions[chr(65 + col_idx)].width = column_width + 2
+            writer.sheets['Oportunidade de melhorias'].column_dimensions[chr(65 + col_idx)].width = column_width + 2
     
     return output.getvalue()
 
@@ -144,7 +144,7 @@ def render_diagnostico():
         causa = st.text_input("Causa", placeholder="Digite a causa")
 
         # Submit button
-        submit_button = st.form_submit_button(label='Obter Diagnóstico')
+        submit_button = st.form_submit_button(label='Obter Oportunidade de melhorias')
 
     # Process form submission
     if submit_button:
@@ -153,10 +153,10 @@ def render_diagnostico():
             processo = st.session_state.processo = f"""ramo_empresa: {ramo_empresa}, direcionadores: {direcionadores}, nome_do_processo: {nome_processo}, atividade: {atividade}, evento: {evento}, causa: {causa}"""
             
             #Apply AI
-            with st.spinner('Diagnostico em andamento...'):  
+            with st.spinner('Oportunidade de melhorias em andamento...'):  
                 resultados = run_agent_analysis(processo)                
                 print(resultados)
-            st.success("Diagnóstico realizado com sucesso.")
+            st.success("Oportunidade de melhorias obtidas com sucesso.")
             
             # Store in the session state
             st.session_state.resultados = resultados
@@ -170,7 +170,7 @@ def render_diagnostico():
                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             )            
         else:
-            st.warning("Por favor, preencha todos os campos antes do diagnóstico.")
+            st.warning("Por favor, preencha todos os campos antes da obtenção das Oportunidade de melhorias.")
 
 def render_planilha_final():
     """
@@ -179,7 +179,7 @@ def render_planilha_final():
     """
     # Retrieve 'resultados' from session state
     if 'resultados' not in st.session_state:
-        st.warning("Não foi executado o diagnóstico.")
+        st.warning("Não foi executado a obtenção das Oportunidade de melhorias.")
         return
     resultados = st.session_state.resultados
     st.session_state.resultados_dict = resultados.to_dict('records')
@@ -230,7 +230,7 @@ def render_planilha_final():
                 st.download_button(
                     label="📥 Baixar Excel",
                     data=excel_file,
-                    file_name='diagnóstico_final.xlsx',
+                    file_name='Oportunidade de melhorias final.xlsx',
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
 
@@ -265,7 +265,7 @@ def main():
     main_container = st.container()
     with main_container:
         # Render appropriate page content based on current page
-        if pages[st.session_state.current_page] == "🔍 Diagnóstico do Cliente":
+        if pages[st.session_state.current_page] == "🔍 Oportunidade de melhorias":
             render_diagnostico()  
         elif pages[st.session_state.current_page] == "📋 Planilha Final":
             render_planilha_final()
