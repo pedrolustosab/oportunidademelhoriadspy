@@ -12,22 +12,19 @@ class OportuneRAGClient:
     def __init__(self):
         # Explicitly load .env file and print debug information
         load_dotenv()
-        
+       
         # Debug print environment variables
         print("OPENAI_API_KEY:", "SET" if os.getenv("OPENAI_API_KEY") else "NOT SET")
         print("WEAVIATE_CLUSTER_URL:", os.getenv("WEAVIATE_URL"))
         print("WEAVIATE_API_KEY:", "SET" if os.getenv("WEAVIATE_API_KEY") else "NOT SET")
-
         # Retrieve environment variables
         self.secretk = os.getenv("OPENAI_API_KEY")
         self.weaviate_cluster_url = os.getenv("WEAVIATE_URL")
         self.weaviate_api_key = os.getenv("WEAVIATE_API_KEY")
-
         # Validate environment variables
         if not all([self.secretk, self.weaviate_cluster_url, self.weaviate_api_key]):
             print("Error: Missing required environment variables")
             sys.exit(1)
-
         self.client = OpenAI(api_key=self.secretk)
         self.weaviate_client = self.setup_weaviate_client()
         self.params4o = self.setup_dspy_params()
@@ -39,7 +36,6 @@ class OportuneRAGClient:
             # Validate cluster URL
             if not self.weaviate_cluster_url:
                 raise ValueError("Weaviate cluster URL is not set")
-
             weaviate_client = weaviate.connect_to_weaviate_cloud(
                 cluster_url=self.weaviate_cluster_url,
                 auth_credentials=weaviate.AuthApiKey(self.weaviate_api_key),
@@ -58,7 +54,6 @@ class OportuneRAGClient:
         try:
             if self.weaviate_client is None:
                 raise ValueError("Weaviate client is not initialized")
-
             return {
                 "lm": dspy.OpenAI(model='gpt-4o', max_tokens=2048, temperature=0.2),
                 "rm": WeaviateRM("DocsOportunidades", weaviate_client=self.weaviate_client,
@@ -71,7 +66,8 @@ class OportuneRAGClient:
     def load_modelo(self):
         try:
             caminho = r"modelo_oportune_08112024.json"
-            self.modelo.load(path=caminho)
+            # Added use_legacy_loading=True to the load method
+            self.modelo.load(path=caminho, use_legacy_loading=True)
         except Exception as e:
             print(f"ERRO CARREGANDO MODELO: {e}")
 
@@ -80,7 +76,6 @@ class OportuneRAGClient:
             # Check if params are properly set
             if self.params4o is None:
                 raise ValueError("DSpy parameters not properly initialized")
-
             dspy.settings.configure(**self.params4o)
             resposta = self.modelo(question=prompt)
             return resposta.answer
