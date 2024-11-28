@@ -53,7 +53,7 @@ try:
         context = dspy.InputField(desc="traga as oportunidades mais relevantes para o cenário do cliente em questão.")    
     
         # RESPOSTA SEGUINDO OS FEWSHOTS dspy.Example()
-        answer = dspy.OutputField(desc="""Dê sua resposta com as 5 melhores oportunidades, cite as possíveis soluções para cada solução, 
+        answer = dspy.OutputField(desc="""Dê sua resposta com as **10** melhores oportunidades, cite as possíveis soluções para cada solução, 
                                       cada uma com o investimento que irá ser necessário e os ganhos que irá trazer a empresa, 
                                       modelo de resposta:
                                       

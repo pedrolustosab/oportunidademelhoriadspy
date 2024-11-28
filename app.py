@@ -6,10 +6,24 @@ from dotenv import load_dotenv
 from process import run_agent_analysis
 import pandas as pd
 from io import BytesIO
-
+import time
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
+
+# Predefined list of direcionadores
+DIRECIONADORES_OPTIONS = [
+    "Redução de Custos",
+    "Aumento de Produtividade",
+    "Melhoria da Qualidade",
+    "Satisfação do Cliente",
+    "Inovação",
+    "Sustentabilidade",
+    "Segurança do Trabalho",
+    "Desenvolvimento Organizacional",
+    "Eficiência Operacional",
+    "Compliance"
+]
 
 def stylable_container(key, css_styles):
     """
@@ -136,7 +150,7 @@ def render_diagnostico():
     if 'form_inputs' not in st.session_state:
         st.session_state.form_inputs = {
             'ramo_empresa': '',
-            'direcionadores': '',
+            'direcionadores': [],
             'nome_processo': '',
             'atividade': '',
             'evento': '',
@@ -152,12 +166,18 @@ def render_diagnostico():
             placeholder="Digite o ramo da empresa",
             key='input_ramo_empresa'
         )
-        direcionadores = st.text_input(
+        
+        # Multi-select for direcionadores
+        direcionadores = st.multiselect(
             "Direcionadores", 
-            value=st.session_state.form_inputs['direcionadores'], 
-            placeholder="Digite os direcionadores de negócios",
-            key='input_direcionadores'
+            options=DIRECIONADORES_OPTIONS,
+            default=st.session_state.form_inputs['direcionadores'],
+            key='input_direcionadores',
+            help="Selecione um ou mais direcionadores de negócios"
         )
+        
+        # Add more direcionadores
+        
         nome_processo = st.text_input(
             "Nome do processo", 
             value=st.session_state.form_inputs['nome_processo'], 
@@ -198,29 +218,54 @@ def render_diagnostico():
             'causa': causa
         }
 
-        if ramo_empresa and direcionadores and nome_processo and atividade and evento and causa:              
+        if ramo_empresa and direcionadores and nome_processo and atividade and evento and causa:
+            # Collect results for all direcionadores
+            all_resultados = []
             
-            #Apply AI
-            with st.spinner('Oportunidade de melhorias em andamento...'): 
-                processo = st.session_state.processo = f"""ramo_empresa: {ramo_empresa}, direcionadores: {direcionadores}, nome_do_processo: {nome_processo}, atividade: {atividade}, evento: {evento}, causa: {causa}"""
-                 
-                analyst = run_agent_analysis(processo)   
-                resultados = analyst            
-            st.success("Oportunidade de melhorias obtidas com sucesso.")
+            #Apply AI for each direcionador
+            with st.spinner('Oportunidade de melhorias em andamento...'):
+                start_time = time.time()
+                
+                # Run analysis for each selected direcionador
+                for direcao in direcionadores:
+                    # Construct process description with current direcionador
+                    processo = f"""ramo_empresa: {ramo_empresa}, direcionadores: {direcao}, nome_do_processo: {nome_processo}, atividade: {atividade}, evento: {evento}, causa: {causa}"""
+                    
+                    # Run AI analysis
+                    analyst = run_agent_analysis(processo)
+                    
+                    # Add direcionador column to track which focus was used
+                    analyst['Direcionador'] = direcao
+                    
+                    all_resultados.append(analyst)
+                
+                # Combine all results
+                resultados = pd.concat(all_resultados, ignore_index=True)
+                
+                end_time = time.time()
+                execution_time = end_time - start_time
+                
+            st.success(f"Oportunidade de melhorias obtidas para {len(direcionadores)} direcionadores em {execution_time:.2f} segundos.")
             
             # Store in the session state
             st.session_state.resultados = resultados
 
             # Convert to Excel and allow download
             excel_file = convert_df_to_excel(resultados)
-            st.download_button(
-                label="📥Baixar Excel",
-                data=excel_file,
-                file_name='oportunidade_melhoria.xlsx',
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            )            
+            st.session_state.excel_file = excel_file
+            st.session_state.show_download_button = True
         else:
             st.warning("Por favor, preencha todos os campos antes da obtenção das Oportunidade de melhorias.")
+
+    # Persistent download button across page navigation
+    if hasattr(st.session_state, 'show_download_button') and st.session_state.show_download_button:
+        st.download_button(
+            label="📥Baixar Excel",
+            data=st.session_state.excel_file,
+            file_name='oportunidade_melhoria.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            key="persistent_download_button"
+        )
 
 def render_planilha_final():
     """
@@ -246,6 +291,8 @@ def render_planilha_final():
         with st.form(key=f'opportunity_form_{idx}'):
             
             # Display each field in a text area for editing
+            st.write(f"### Oportunidade {idx + 1} - Direcionador: {row.get('Direcionador', 'N/A')}")
+            
             oportunidade_de_melhoria = st.text_area(
                 "Oportunidade de Melhoria", 
                 value=row['Oportunidade de Melhoria'], 
@@ -300,12 +347,17 @@ def render_planilha_final():
         st.session_state.resultados = edited_df
 
         # Convert updated DataFrame to Excel for download
-        excel_file = convert_df_to_excel(edited_df)
+        st.session_state.excel_file = convert_df_to_excel(edited_df)
+        st.session_state.show_download_button = True
+
+    # Persistent download button across page navigation
+    if hasattr(st.session_state, 'show_download_button') and st.session_state.show_download_button:
         st.download_button(
             label="📥 Baixar Excel com Todas as Edições",
-            data=excel_file,
+            data=st.session_state.excel_file,
             file_name='Oportunidade_de_melhorias_final.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            key="persistent_final_download_button"
         )
         
 def main():
