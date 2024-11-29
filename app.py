@@ -183,11 +183,18 @@ def render_diagnostico():
                     start_time = time.time()
                     new_resultados = []
                     
-                    for direcao in st.session_state.direcionadores:
+                    if type(st.session_state.direcionadores) == str:
+                        direcao = st.session_state.direcionadores
                         processo = f"""ramo_empresa: {ramo_empresa}, direcionadores: {direcao}, nome_do_processo: {nome_processo}, atividade: {atividade}, evento: {evento}, causa: {causa}"""
                         analyst = run_agent_analysis(processo)
                         analyst['Direcionador'] = direcao
                         new_resultados.append(analyst)
+                    else:
+                        for direcao in st.session_state.direcionadores:
+                            processo = f"""ramo_empresa: {ramo_empresa}, direcionadores: {direcao}, nome_do_processo: {nome_processo}, atividade: {atividade}, evento: {evento}, causa: {causa}"""
+                            analyst = run_agent_analysis(processo)
+                            analyst['Direcionador'] = direcao
+                            new_resultados.append(analyst)
                     
                     if new_resultados:
                         st.session_state.all_resultados.extend(new_resultados)
@@ -211,8 +218,7 @@ def render_diagnostico():
         )
 
 
-import pandas as pd
-import streamlit as st
+
 
 def render_planilha_final():
     if 'resultados' not in st.session_state:
