@@ -11,31 +11,12 @@ import time
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 
-# Predefined list of direcionadores
-DIRECIONADORES_OPTIONS = [
-    "Redução de Custos",
-    "Aumento de Produtividade",
-    "Melhoria da Qualidade",
-    "Satisfação do Cliente",
-    "Inovação",
-    "Sustentabilidade",
-    "Segurança do Trabalho",
-    "Desenvolvimento Organizacional",
-    "Eficiência Operacional",
-    "Compliance"
-]
+all_resultados=[]
+
+if 'direcionadores' not in st.session_state:
+    st.session_state.direcionadores = []
 
 def stylable_container(key, css_styles):
-    """
-    Create a stylable container with custom CSS.
-
-    Args:
-    key (int): The index of the child div to style.
-    css_styles (str): CSS styles to apply to the container.
-
-    Returns:
-    streamlit.container: A stylable Streamlit container.
-    """
     st.markdown(f"""
         <style>
         div[data-testid="stHorizontalBlock"] > div:nth-child({key}) {{
@@ -46,12 +27,6 @@ def stylable_container(key, css_styles):
     return st.container()
 
 def add_bg_from_local(image_file):
-    """
-    Add a background image to the Streamlit app from a local file.
-
-    Args:
-    image_file (str): Path to the local image file.
-    """
     with Path(image_file).open("rb") as file:
         encoded_string = base64.b64encode(file.read()).decode()
     st.markdown(
@@ -69,25 +44,10 @@ def add_bg_from_local(image_file):
     )
 
 def load_css(css_file):
-    """
-    Load and apply CSS from a file to the Streamlit app.
-
-    Args:
-    css_file (str): Path to the CSS file.
-    """
     with open(css_file, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 def get_button_style(button_class):
-    """
-    Get the button style based on its class.
-
-    Args:
-    button_class (str): The class of the button ('current', 'previous', or other).
-
-    Returns:
-    str: CSS style for the button.
-    """
     if button_class == "current":
         return "background-color: #01374C; color: white; font-weight: bold; font-size: 24px;"
     elif button_class == "previous":
@@ -96,15 +56,8 @@ def get_button_style(button_class):
         return "background-color: #4B484340; color: #333333; font-size: 18px;"
 
 def setup_navigation():
-    """
-    Set up the navigation sidebar for the app.
-
-    Returns:
-    list: A list of page names.
-    """
     st.sidebar.markdown("<h1 style='text-align: center; color: #AC8D61;'>Navegação</h1>", unsafe_allow_html=True)
     
-    #Pages
     pages = ["🔍 Oportunidade de melhorias", "📋 Planilha Final"]
     
     if 'current_page' not in st.session_state:
@@ -127,152 +80,141 @@ def setup_navigation():
 
     return pages
 
+def add_direcionador(new_direcionador):
+    if new_direcionador and new_direcionador not in st.session_state.direcionadores:
+        st.session_state.direcionadores.append(new_direcionador)
+        return True
+    return False
+
+def remove_direcionador(direcionador_to_remove):
+    if direcionador_to_remove in st.session_state.direcionadores:
+        st.session_state.direcionadores.remove(direcionador_to_remove)
+
 def convert_df_to_excel(df):
-    """
-    Convert DataFrame to Excel file
-    """
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='Oportunidade de melhorias', index=False)
-        # Auto-adjust columns' width
         for column in df:
             column_width = max(df[column].astype(str).map(len).max(), len(column))
             col_idx = df.columns.get_loc(column)
             writer.sheets['Oportunidade de melhorias'].column_dimensions[chr(65 + col_idx)].width = column_width + 2
-    
     return output.getvalue()
 
 def render_diagnostico():
-    """
-    Render the "Oportunidade de Melhoria" page with input preservation.
-    """
-    # Initialize session state for form inputs if not exists
     if 'form_inputs' not in st.session_state:
         st.session_state.form_inputs = {
             'ramo_empresa': '',
-            'direcionadores': [],
             'nome_processo': '',
             'atividade': '',
             'evento': '',
             'causa': ''
         }
+    
+    if 'all_resultados' not in st.session_state:
+        st.session_state.all_resultados = []
+        
+    st.write("## Oportunidade de Melhoria")
 
-    # Create a form for user input with preserved values
+    with st.form(key='add_direcionador_form'):
+        new_direcionador = st.text_input(
+            "Novo Direcionador",
+            placeholder="Digite um novo direcionador",
+            key="new_direcionador"
+        )
+        if st.form_submit_button("Adicionar Direcionador"):
+            if add_direcionador(new_direcionador):
+                st.success(f"Direcionador '{new_direcionador}' adicionado com sucesso!")
+                st.rerun()
+            else:
+                if not new_direcionador:
+                    st.warning("Por favor, digite um direcionador.")
+                else:
+                    st.warning("Este direcionador já existe.")
+
+    for direcionador in st.session_state.direcionadores:
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.text(direcionador)
+        with col2:
+            if st.button("Remover", key=f"remove_{direcionador}"):
+                remove_direcionador(direcionador)
+                st.rerun()
+
     with st.form(key='oportunidade_melhoria_form'):
-        # Input fields with preserved values
         ramo_empresa = st.text_input(
             "Ramo da empresa", 
-            value=st.session_state.form_inputs['ramo_empresa'], 
-            placeholder="Digite o ramo da empresa",
-            key='input_ramo_empresa'
+            value=st.session_state.form_inputs['ramo_empresa'],
+            placeholder="Digite o ramo da empresa"
         )
-        
-        # Multi-select for direcionadores
-        direcionadores = st.multiselect(
-            "Direcionadores", 
-            options=DIRECIONADORES_OPTIONS,
-            default=st.session_state.form_inputs['direcionadores'],
-            key='input_direcionadores',
-            help="Selecione um ou mais direcionadores de negócios"
-        )
-        
-        # Add more direcionadores
-        
         nome_processo = st.text_input(
             "Nome do processo", 
-            value=st.session_state.form_inputs['nome_processo'], 
-            placeholder="Digite o nome do processo",
-            key='input_nome_processo'
+            value=st.session_state.form_inputs['nome_processo'],
+            placeholder="Digite o nome do processo"
         )
         atividade = st.text_input(
             "Atividade", 
-            value=st.session_state.form_inputs['atividade'], 
-            placeholder="Digite a atividade",
-            key='input_atividade'
+            value=st.session_state.form_inputs['atividade'],
+            placeholder="Digite a atividade"
         )
         evento = st.text_input(
             "Evento", 
-            value=st.session_state.form_inputs['evento'], 
-            placeholder="Digite o evento",
-            key='input_evento'
+            value=st.session_state.form_inputs['evento'],
+            placeholder="Digite o evento"
         )
         causa = st.text_input(
             "Causa", 
-            value=st.session_state.form_inputs['causa'], 
-            placeholder="Digite a causa",
-            key='input_causa'
+            value=st.session_state.form_inputs['causa'],
+            placeholder="Digite a causa"
         )
 
-        # Submit button
         submit_button = st.form_submit_button(label='Obter Oportunidade de melhorias')
 
-    # Process form submission
-    if submit_button:
-        # Update session state inputs
-        st.session_state.form_inputs = {
-            'ramo_empresa': ramo_empresa,
-            'direcionadores': direcionadores,
-            'nome_processo': nome_processo,
-            'atividade': atividade,
-            'evento': evento,
-            'causa': causa
-        }
+        if submit_button:
+            st.session_state.form_inputs = {
+                'ramo_empresa': ramo_empresa,
+                'nome_processo': nome_processo,
+                'atividade': atividade,
+                'evento': evento,
+                'causa': causa
+            }
 
-        if ramo_empresa and direcionadores and nome_processo and atividade and evento and causa:
-            # Collect results for all direcionadores
-            all_resultados = []
-            
-            #Apply AI for each direcionador
-            with st.spinner('Oportunidade de melhorias em andamento...'):
-                start_time = time.time()
-                
-                # Run analysis for each selected direcionador
-                for direcao in direcionadores:
-                    # Construct process description with current direcionador
-                    processo = f"""ramo_empresa: {ramo_empresa}, direcionadores: {direcao}, nome_do_processo: {nome_processo}, atividade: {atividade}, evento: {evento}, causa: {causa}"""
+            if ramo_empresa and st.session_state.direcionadores and nome_processo and atividade and evento and causa:
+                with st.spinner('Oportunidade de melhorias em andamento...'):
+                    start_time = time.time()
+                    new_resultados = []
                     
-                    # Run AI analysis
-                    analyst = run_agent_analysis(processo)
+                    for direcao in st.session_state.direcionadores:
+                        processo = f"""ramo_empresa: {ramo_empresa}, direcionadores: {direcao}, nome_do_processo: {nome_processo}, atividade: {atividade}, evento: {evento}, causa: {causa}"""
+                        analyst = run_agent_analysis(processo)
+                        analyst['Direcionador'] = direcao
+                        new_resultados.append(analyst)
                     
-                    # Add direcionador column to track which focus was used
-                    analyst['Direcionador'] = direcao
-                    
-                    all_resultados.append(analyst)
-                
-                # Combine all results
-                resultados = pd.concat(all_resultados, ignore_index=True)
-                
-                end_time = time.time()
-                execution_time = end_time - start_time
-                
-            st.success(f"Oportunidade de melhorias obtidas para {len(direcionadores)} direcionadores em {execution_time:.2f} segundos.")
-            
-            # Store in the session state
-            st.session_state.resultados = resultados
+                    if new_resultados:
+                        st.session_state.all_resultados.extend(new_resultados)
+                        resultados = pd.concat(st.session_state.all_resultados, ignore_index=True)
+                        execution_time = time.time() - start_time
+                        
+                        st.success(f"Oportunidade de melhorias obtidas para {len(st.session_state.direcionadores)} direcionadores em {execution_time:.2f} segundos.")
+                        
+                        st.session_state.resultados = resultados
+                        st.session_state.excel_file = convert_df_to_excel(resultados)
+                        st.session_state.show_download_button = True
+            else:
+                st.warning("Por favor, preencha todos os campos e adicione pelo menos um direcionador.")
 
-            # Convert to Excel and allow download
-            excel_file = convert_df_to_excel(resultados)
-            st.session_state.excel_file = excel_file
-            st.session_state.show_download_button = True
-        else:
-            st.warning("Por favor, preencha todos os campos antes da obtenção das Oportunidade de melhorias.")
-
-    # Persistent download button across page navigation
     if hasattr(st.session_state, 'show_download_button') and st.session_state.show_download_button:
         st.download_button(
             label="📥Baixar Excel",
             data=st.session_state.excel_file,
             file_name='oportunidade_melhoria.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            key="persistent_download_button"
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
 
+
+import pandas as pd
+import streamlit as st
+
 def render_planilha_final():
-    """
-    Render the "Planilha Final" page showing all opportunities 
-    with editable forms for each.
-    """
-    # Retrieve 'resultados' from session state
     if 'resultados' not in st.session_state:
         st.warning("Não foi executado a obtenção das Oportunidade de melhorias.")
         return
@@ -280,56 +222,50 @@ def render_planilha_final():
     resultados = st.session_state.resultados
     st.session_state.resultados_dict = resultados.to_dict('records')
 
-    # Create a container to hold all opportunity forms
-    st.write("## Oportunidades de Melhoria")
-
-    # Track if any changes were made
+    st.write("## Planilha Final")
     changes_made = False
+    deleted_indices = set()
 
-    # Iterate through each opportunity and create an editable form
     for idx, row in enumerate(st.session_state.resultados_dict):
+        if idx in deleted_indices:  # Skip opportunities already marked for deletion
+            continue
+        
         with st.form(key=f'opportunity_form_{idx}'):
-            
-            # Display each field in a text area for editing
             st.write(f"### Oportunidade {idx + 1} - Direcionador: {row.get('Direcionador', 'N/A')}")
             
             oportunidade_de_melhoria = st.text_area(
                 "Oportunidade de Melhoria", 
                 value=row['Oportunidade de Melhoria'], 
-                key=f"oportunidade_{idx}", 
                 height=100
             )
             solucao = st.text_area(
                 "Solução", 
                 value=row['Solução'], 
-                key=f"solucao_{idx}", 
                 height=100
             )
             backlog_de_atividades = st.text_area(
                 "Backlog de Atividades", 
                 value=row.get('Backlog de Atividades', ''), 
-                key=f"backlog_{idx}", 
                 height=100
             )
             investimento = st.text_area(
                 "Investimento", 
                 value=row.get('Investimento', ''), 
-                key=f"investimento_{idx}", 
                 height=100
             )
             ganhos = st.text_area(
                 "Ganhos", 
                 value=row.get('Ganhos', ''), 
-                key=f"ganhos_{idx}", 
                 height=100
             )
-
-            # Submit button for each form
-            submit_button = st.form_submit_button(label=f"Salvar Edição para Oportunidade {idx + 1}")
-
-            # Process form submission
-            if submit_button:
-                # Update the row in the dictionary
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                save_button = st.form_submit_button(label=f"Salvar Edição para Oportunidade {idx + 1}")
+            with col2:
+                delete_button = st.form_submit_button(label=f"Excluir Oportunidade {idx + 1}", type="secondary")
+            
+            if save_button:
                 row.update({
                     'Oportunidade de Melhoria': oportunidade_de_melhoria,
                     'Solução': solucao,
@@ -339,66 +275,55 @@ def render_planilha_final():
                 })
                 changes_made = True
                 st.success(f"Edição salva para Oportunidade {idx + 1}")
+            
+            if delete_button:
+                deleted_indices.add(idx)
+                st.warning(f"Oportunidade {idx + 1} marcada para exclusão.")
 
-    # If changes were made, update the DataFrame and provide download
+    if deleted_indices:
+        st.session_state.resultados_dict = [
+            row for idx, row in enumerate(st.session_state.resultados_dict) if idx not in deleted_indices
+        ]
+        changes_made = True
+
     if changes_made:
-        # Update DataFrame with edited rows
         edited_df = pd.DataFrame(st.session_state.resultados_dict)
         st.session_state.resultados = edited_df
-
-        # Convert updated DataFrame to Excel for download
         st.session_state.excel_file = convert_df_to_excel(edited_df)
         st.session_state.show_download_button = True
 
-    # Persistent download button across page navigation
     if hasattr(st.session_state, 'show_download_button') and st.session_state.show_download_button:
         st.download_button(
             label="📥 Baixar Excel com Todas as Edições",
             data=st.session_state.excel_file,
             file_name='Oportunidade_de_melhorias_final.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            key="persistent_final_download_button"
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        
+
+
 def main():
-    """
-    Main function to run the Streamlit app.
-    
-    This function sets up the page configuration, loads the background and CSS,
-    sets up navigation, and renders the appropriate page content based on user navigation.
-    It also handles the progress bar and navigation buttons.
-    """
     st.set_page_config(page_title="Oportunidade de Melhoria", layout="wide")
     add_bg_from_local('background.png')
-    load_css('style.css')  # Load the external CSS file
+    load_css('style.css')
     
     pages = setup_navigation()
-    
-    # Calculate progress value
     progress_value = (st.session_state.current_page + 1) / len(pages)
     
-    # Create layout with title on the left and logo on the right
     col1, col2 = st.columns([3, 1])
     with col1:
         st.markdown(f'<p class="big-font">{pages[st.session_state.current_page]}</p>', unsafe_allow_html=True)
     with col2:
         st.image('logo.png', width=200)
     
-    # Add progress bar
     st.progress(progress_value)
 
-    # Create a container for the main content
     main_container = st.container()
     with main_container:
-        # Render appropriate page content based on current page
         if pages[st.session_state.current_page] == "🔍 Oportunidade de melhorias":
             render_diagnostico()  
         elif pages[st.session_state.current_page] == "📋 Planilha Final":
             render_planilha_final()
-        else:
-            st.write(f"This is {pages[st.session_state.current_page]} page. Add your content here.")
 
-    # Navigation buttons
     col1, col2, col3 = st.columns(3)
     with col1:
         if st.session_state.current_page > 0:
